@@ -1,5 +1,6 @@
 package com.flatironschool.javacs;
 
+import java.io.*;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,7 +69,7 @@ public class JedisIndex {
 	 */
 	public Set<String> getURLs(String term) {
         // FILL THIS IN!
-		return null;
+         return jedis.smembers(urlSetKey(term));
 	}
 
     /**
@@ -79,7 +80,13 @@ public class JedisIndex {
 	 */
 	public Map<String, Integer> getCounts(String term) {
         // FILL THIS IN!
-		return null;
+        Map<String, Integer> m = new HashMap<String, Integer>();
+        Set<String> l = getURLs(term);
+        for(String s : l)
+        {
+         m.put(s, getCount(s, term));
+        }
+		return m;
 	}
 
     /**
@@ -91,7 +98,7 @@ public class JedisIndex {
 	 */
 	public Integer getCount(String url, String term) {
         // FILL THIS IN!
-		return null;
+		return Integer.parseInt(jedis.hget(termCounterKey(url), term));
 	}
 
 
@@ -103,6 +110,21 @@ public class JedisIndex {
 	 */
 	public void indexPage(String url, Elements paragraphs) {
         // FILL THIS IN!
+         
+          // make a TermCounter and count the terms in the paragraphs
+                 TermCounter tc = new TermCounter(url);
+                 tc.processElements(paragraphs);
+
+           Transaction t = jedis.multi();
+
+                 // for each term in the TermCounter, add the TermCounter to the index
+                 for (String term: tc.keySet()) {
+                         Integer c = tc.get(term);
+                         t.sadd(urlSetKey(term),url);
+                         t.hset(termCounterKey(url), term, c.toString());
+                 }
+              t.exec();
+         
 	}
 
 	/**
@@ -227,7 +249,7 @@ public class JedisIndex {
 		//index.deleteURLSets();
 		//index.deleteAllKeys();
 		loadIndex(index);
-		
+            
 		Map<String, Integer> map = index.getCounts("the");
 		for (Entry<String, Integer> entry: map.entrySet()) {
 			System.out.println(entry);
